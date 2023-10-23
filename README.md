@@ -35,7 +35,7 @@ Some applications using frei0r, in which you can use this plugin:
 1. Create a folder somewhere, copy the plugin binary to it, and set environment variable `FREI0R_PATH` to that dir. For example on Windows: `set FREI0R_PATH=C:\effects\`
 2. Run ffmpeg: `ffmpeg -i input_video.mp4 -vf "frei0r=gyroflow:C_DRIVE_SEP_projects_DIR_SEP_my_project.gyroflow|0.5|n" result.mp4`
 3. Parameters are: `project_file_path|smoothness|stabilization_overview`.
-4. Because ffmpoeg can't accept `:` or `/` in parameters, plugin will replace `_DRIVE_SEP_` with `:\` and `_DIR_SEP_` with `/`, so you can use parameter: `E_DRIVE_SEP_some_folder_DIR_SEP_my_project.gyroflow` for `E:\some_folder\my_project.gyroflow`
+4. Because ffmpeg can't accept `:` or `/` in parameters, plugin will replace `_DRIVE_SEP_` with `:\` and `_DIR_SEP_` with `/`, so you can use parameter: `E_DRIVE_SEP_some_folder_DIR_SEP_my_project.gyroflow` for `E:\some_folder\my_project.gyroflow`
 
 
 # Building from source
