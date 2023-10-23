@@ -1149,7 +1149,6 @@ dependencies = [
  "cstr",
  "gyroflow-core",
  "log",
- "win_dbg_logger",
 ]
 
 [[package]]
@@ -3159,15 +3158,6 @@ name = "widestring"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "653f141f39ec16bba3c5abe400a0c60da7468261cc2cbf36805022876bc721a8"
-
-[[package]]
-name = "win_dbg_logger"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7d1b4c22244dc27534d81e2f6fc3efd6b20e50c010f177efc20b719ec759a779"
-dependencies = [
- "log",
-]
 
 [[package]]
 name = "winapi"

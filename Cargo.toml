@@ -15,7 +15,6 @@ log = "0.4"
 gyroflow-core = { git = "https://github.com/gyroflow/gyroflow.git", default-features = false, rev = "c551b2f", features = ["bundle-lens-profiles"] }
 #gyroflow-core = { path = "../gyroflow/src/core", default-features = false, features = ["bundle-lens-profiles"] }
 cstr = "0.2"
-win_dbg_logger = "*"
 
 [features]
 default = ["use-opencl"]

@@ -16,6 +16,7 @@ struct Instance {
     width: usize,
     height: usize,
     stab: StabilizationManager,
+    time_scale: Option<f64>,
     // Params
     path: String,
     smoothness: f64,
@@ -88,7 +89,10 @@ extern "C" fn f0r_set_param_value(instance: f0r_instance_t, param: f0r_param_t, 
     unsafe {
         match index {
             0 => { // Project file
-                let path = std::ffi::CStr::from_ptr(*(param as *mut *mut std::ffi::c_char)).to_string_lossy().to_owned().to_string();
+                let path = std::ffi::CStr::from_ptr(*(param as *mut *mut std::ffi::c_char)).to_string_lossy().to_owned()
+                    .replace("_DRIVE_SEP_", ":/")
+                    .replace("_DIR_SEP_", "/");
+
                 if path != inst.path {
                     inst.path = path.clone();
 
@@ -162,9 +166,15 @@ extern "C" fn f0r_get_param_value(instance: f0r_instance_t, param: f0r_param_t, 
 #[no_mangle]
 extern "C" fn f0r_update(instance: f0r_instance_t, time: f64, inframe: *const u32, outframe: *mut u32) {
     if instance.is_null() { return; }
-    let inst = unsafe { Box::from_raw(instance as *mut Instance) };
+    let mut inst = unsafe { Box::from_raw(instance as *mut Instance) };
+    if time > 0.0 && inst.time_scale.is_none() {
+        // FFmpeg passes wrong units of `time` - it's in milliseconds instead of seconds
+        // If the second frame has `time` larger than 1 (second), then set the timescale to 0.001 to workaround that bug
+        inst.time_scale = Some(if time > 1.0 { 0.001 } else { 1.0 });
+    }
+    let scale = inst.time_scale.unwrap_or(1.0);
 
-    let timestamp_us = (time * 1_000_000.0).round() as i64;
+    let timestamp_us = (time * 1_000_000.0 * scale).round() as i64;
 
     let org_ratio = {
         let params = inst.stab.params.read();
