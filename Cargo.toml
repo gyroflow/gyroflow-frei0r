@@ -1,0 +1,30 @@
+[package]
+name = "gyroflow-frei0r"
+version = "0.0.1"
+authors = ["Adrian <adrian.eddy@gmail.com>"]
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "Gyroflow frei0r plugin"
+
+[lib]
+name = "gyroflow"
+crate-type = ["cdylib"]
+
+[dependencies]
+log = "0.4"
+gyroflow-core = { git = "https://github.com/gyroflow/gyroflow.git", default-features = false, rev = "c551b2f", features = ["bundle-lens-profiles"] }
+#gyroflow-core = { path = "../gyroflow/src/core", default-features = false, features = ["bundle-lens-profiles"] }
+cstr = "0.2"
+win_dbg_logger = "*"
+
+[features]
+default = ["use-opencl"]
+use-opencl = ["gyroflow-core/use-opencl"]
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+
+[profile.dev]
+opt-level = 2

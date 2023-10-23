@@ -1,0 +1,128 @@
+on: [push, pull_request]
+
+name: Build
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - run: |
+          sudo docker run -v ${{ github.workspace }}:${{ github.workspace }} -v $HOME/.cargo:/root/.cargo debian:10 bash -c "
+            set -e
+            apt-get update -y
+            echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections
+            apt install -y sudo dialog apt-utils git curl zip clang make ocl-icd-opencl-dev
+            export RUNLEVEL=1
+            curl https://sh.rustup.rs -sSf | sh -s -- -y --profile minimal
+            source \$HOME/.cargo/env
+            git clone --depth 1 https://github.com/Microsoft/vcpkg.git ${{ github.workspace }}/vcpkg || true
+            ${{ github.workspace }}/vcpkg/bootstrap-vcpkg.sh -disableMetrics
+            ${{ github.workspace }}/vcpkg/vcpkg install "opencl:x64-linux-release"
+            cd ${{ github.workspace }}
+            cargo build --release
+          "
+
+      - name: Save Binaries
+        uses: actions/upload-artifact@v3
+        with:
+          name: gyroflow-frei0r-linux
+          path: target/release/libgyroflow.so
+
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: target/release/libgyroflow.so
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  macos:
+    runs-on: macOS-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Add rust target
+        run: rustup target add aarch64-apple-darwin
+
+      - uses: lukka/get-cmake@latest
+      - uses: lukka/run-vcpkg@v10
+        with:
+          vcpkgGitCommitId: 3265c187c74914aa5569b75355badebfdbab7987
+      - name: Install OpenCL
+        run: |
+          vcpkg install "opencl:x64-osx-release"
+          vcpkg install "opencl:arm64-osx"
+
+      - uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release --target x86_64-apple-darwin
+      - uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release --target aarch64-apple-darwin
+
+      - run: |
+          cp target/x86_64-apple-darwin/release/libgyroflow.dylib target/libgyroflow_macos_x86_64.dylib
+          cp target/aarch64-apple-darwin/release/libgyroflow.dylib target/libgyroflow_macos_arm64.dylib
+
+      - name: Save Binaries
+        uses: actions/upload-artifact@v3
+        with:
+          name: gyroflow-frei0r-macosx
+          path: |
+            target/libgyroflow_macos_x86_64.dylib
+            target/libgyroflow_macos_arm64.dylib
+
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            target/libgyroflow_macos_x86_64.dylib
+            target/libgyroflow_macos_arm64.dylib
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          target: x86_64-pc-windows-msvc
+      - uses: Swatinem/rust-cache@v2
+
+      - uses: lukka/get-cmake@latest
+      - uses: lukka/run-vcpkg@v10
+        with:
+          vcpkgGitCommitId: 3265c187c74914aa5569b75355badebfdbab7987
+      - name: Install OpenCL
+        run: vcpkg install "opencl:x64-windows-release"
+
+      - uses: actions-rs/cargo@v1
+        env:
+          RUSTFLAGS: -L C:/vcpkg/packages/opencl_x64-windows-release/lib/
+        with:
+          command: build
+          args: --release
+
+      - name: Save Binaries
+        uses: actions/upload-artifact@v3
+        with:
+          name: gyroflow-frei0r-windows
+          path: target/release/gyroflow.dll
+
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: target/gyroflow.dll
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
