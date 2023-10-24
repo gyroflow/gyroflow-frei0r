@@ -16,11 +16,11 @@ struct Instance {
     width: usize,
     height: usize,
     stab: StabilizationManager,
-    time_scale: Option<f64>,
     // Params
     path: String,
     smoothness: f64,
-    stab_overview: bool
+    stab_overview: bool,
+    time_scale: f64,
 }
 
 #[no_mangle] extern "C" fn f0r_init() -> ::std::os::raw::c_int { 1 }
@@ -36,7 +36,7 @@ extern "C" fn f0r_get_plugin_info(info: *mut f0r_plugin_info) {
         (*info).frei0r_version = FREI0R_MAJOR_VERSION;
         (*info).major_version = 0;
         (*info).minor_version = 1;
-        (*info).num_params = 3;
+        (*info).num_params = 4;
         (*info).explanation = cstr!("Gyroflow video stabilization").as_ptr();
     }
 }
@@ -58,6 +58,11 @@ extern "C" fn f0r_get_param_info(info: *mut f0r_param_info, index: ::std::os::ra
                 (*info).name = cstr!("Overview").as_ptr();
                 (*info).type_ = F0R_PARAM_BOOL;
                 (*info).explanation = cstr!("Stabilization overview").as_ptr();
+            },
+            3 => {
+                (*info).name = cstr!("TimestampScale").as_ptr();
+                (*info).type_ = F0R_PARAM_DOUBLE;
+                (*info).explanation = cstr!("Scale for the input timestamp").as_ptr();
             }
             _ => { }
         }
@@ -72,7 +77,7 @@ extern "C" fn f0r_construct(width: ::std::os::raw::c_uint, height: ::std::os::ra
         stab.interpolation = gyroflow_core::stabilization::Interpolation::Lanczos4;
     }
 
-    let id = Box::new(Instance { width: width as usize, height: height as usize, stab, ..Default::default() });
+    let id = Box::new(Instance { width: width as usize, height: height as usize, stab, time_scale: 1.0, ..Default::default() });
     Box::into_raw(id) as f0r_instance_t
 }
 #[no_mangle]
@@ -136,6 +141,9 @@ extern "C" fn f0r_set_param_value(instance: f0r_instance_t, param: f0r_param_t, 
                     inst.stab.recompute_undistortion();
                 }
             },
+            3 => { // Timestamp scale
+                inst.time_scale = *(param as *mut f64);
+            },
             _ => { }
         }
     }
@@ -157,6 +165,9 @@ extern "C" fn f0r_get_param_value(instance: f0r_instance_t, param: f0r_param_t, 
             2 => { // Stabilization overview
                 *(param as *mut f64) = if inst.stab_overview { 1.0 } else { 0.0 };
             },
+            3 => { // Timestamp scale
+                *(param as *mut f64) = inst.time_scale;
+            },
             _ => { }
         }
     }
@@ -166,15 +177,9 @@ extern "C" fn f0r_get_param_value(instance: f0r_instance_t, param: f0r_param_t, 
 #[no_mangle]
 extern "C" fn f0r_update(instance: f0r_instance_t, time: f64, inframe: *const u32, outframe: *mut u32) {
     if instance.is_null() { return; }
-    let mut inst = unsafe { Box::from_raw(instance as *mut Instance) };
-    if time > 0.0 && inst.time_scale.is_none() {
-        // FFmpeg passes wrong units of `time` - it's in milliseconds instead of seconds
-        // If the second frame has `time` larger than 1 (second), then set the timescale to 0.001 to workaround that bug
-        inst.time_scale = Some(if time > 1.0 { 0.001 } else { 1.0 });
-    }
-    let scale = inst.time_scale.unwrap_or(1.0);
+    let inst = unsafe { Box::from_raw(instance as *mut Instance) };
 
-    let timestamp_us = (time * 1_000_000.0 * scale).round() as i64;
+    let timestamp_us = (time * 1_000_000.0 * inst.time_scale).round() as i64;
 
     let org_ratio = {
         let params = inst.stab.params.read();
