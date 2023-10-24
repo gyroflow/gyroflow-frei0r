@@ -126,6 +126,6 @@ jobs:
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: target/gyroflow.dll
+          files: target/release/gyroflow.dll
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
